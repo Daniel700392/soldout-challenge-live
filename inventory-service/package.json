@@ -1,10 +1,18 @@
 {
   "name": "inventory-service",
   "version": "1.0.0",
+<<<<<<< HEAD
   "description": "Inventory Service",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+=======
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
+>>>>>>> b48d1e9f1b01c62f6606ae1ff3de30df77b0d130
   },
   "keywords": [],
   "author": "",
@@ -12,6 +20,17 @@
   "type": "commonjs",
   "dependencies": {
     "dotenv": "^17.4.2",
+<<<<<<< HEAD
     "express": "^5.2.1"
+=======
+    "express": "^5.2.1",
+    "pg": "^8.20.0",
+    "prom-client": "^15.1.3",
+    "redis": "^5.12.1",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+>>>>>>> b48d1e9f1b01c62f6606ae1ff3de30df77b0d130
   }
 }
