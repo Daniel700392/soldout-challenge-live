@@ -23,6 +23,13 @@ app.get('/', (req, res) => {
   res.send('Inventory Service Running')
 })
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'inventory-service'
+  })
+})
+
 app.listen(process.env.PORT, () => {
   console.log(`Inventory service running on port ${process.env.PORT}`)
 })
