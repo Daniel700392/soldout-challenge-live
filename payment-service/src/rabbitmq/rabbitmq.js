@@ -18,12 +18,22 @@ const connectRabbitMQ = async () => {
     }
   );
 
-  await channel.assertQueue(
-    'payment.events.queue',
-    {
-      durable: true,
+ await channel.assertExchange('soldout.dlx', 'topic', {
+  durable: true
+  })
+
+  await channel.assertQueue('dead.letter.queue', {
+  durable: true
+  })
+
+  await channel.bindQueue('dead.letter.queue', 'soldout.dlx', '#')
+
+  await channel.assertQueue('payment.events.queue', {
+    durable: true,
+     arguments: {
+    'x-dead-letter-exchange': 'soldout.dlx'
     }
-  );
+  })
 
   await channel.assertQueue(
     'notification.queue',
