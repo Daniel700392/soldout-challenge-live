@@ -5,6 +5,13 @@ const { pool, initDb } = require('./db/postgres'); // Importamos la conexión re
 const app = express();
 app.use(express.json());
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'booking-service'
+  })
+})
+
 // 1. REGLA CRÍTICA: Iniciamos la base de datos y creamos la tabla si no existe
 initDb();
 

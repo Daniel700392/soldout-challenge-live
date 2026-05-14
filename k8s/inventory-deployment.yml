@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: inventory-deployment
+  labels:
+    app: inventory-service
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: inventory-service
+
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+
+    spec:
+      containers:
+        - name: inventory-service
+
+          image: soldout-challenge-live-inventory-service:latest
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 3002
+
+          env:
+            - name: PORT
+              value: "3002"
+
+            - name: SERVICE_NAME
+              value: "inventory-service"
+
+            - name: DB_HOST
+              value: "postgres-service"
+
+            - name: DB_PORT
+              value: "5432"
+
+            - name: DB_USER
+              value: "admin"
+
+            - name: DB_PASSWORD
+              value: "admin"
+
+            - name: DB_NAME
+              value: "soldout"
+
+            - name: REDIS_HOST
+              value: "redis-service"
+
+            - name: REDIS_PORT
+              value: "6379"
+
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq-service:5672"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+
+            initialDelaySeconds: 15
+            periodSeconds: 10
