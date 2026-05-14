@@ -1,18 +1,17 @@
 {
   "name": "booking-service",
   "version": "1.0.0",
-  "description": "Booking Service",
+  "description": "Microservicio de Reservas - Persona 2",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js"
   },
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "pg": "^8.16.0",
-    "uuid": "^11.1.0"
+    "axios": "^1.16.1",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "pg": "^8.20.0",
+    "uuid": "^9.0.1"
   }
 }
