@@ -1,23 +1,57 @@
-const pool = require('../db/postgres')
-const redisClient = require('../redis/redisClient')
+const pool = require('../db/postgres');
+const redisClient = require('../redis/redisClient');
+const client = require('prom-client');
 
-const reserve = async (eventId, quantity = 1) => {
-  const lockKey = `lock:event:${eventId}`
+const reserveSuccess = new client.Counter({
+  name: 'inventory_reserve_success_total',
+  help: 'Reservas exitosas'
+});
+
+const reserveFailed = new client.Counter({
+  name: 'inventory_reserve_failed_total',
+  help: 'Reservas fallidas'
+});
+
+const soldOutCounter = new client.Counter({
+  name: 'inventory_soldout_total',
+  help: 'Intentos sin stock'
+});
+
+const releaseSuccess = new client.Counter({
+  name: 'inventory_release_success_total',
+  help: 'Liberaciones exitosas'
+});
+
+async function getInventory(eventId) {
+
+  const result = await pool.query(
+    'SELECT * FROM inventory WHERE event_id = $1',
+    [eventId]
+  );
+
+  return result.rows[0];
+}
+
+async function reserveTickets(eventId, quantity) {
+
+  const lockKey = `lock:event:${eventId}`;
+
   const lock = await redisClient.set(lockKey, 'locked', {
     NX: true,
     EX: 5
-  })
+  });
 
   if (!lock) {
-    throw new Error('Resource busy')
+    throw new Error('Could not acquire lock');
   }
 
-  const client = await pool.connect()
+  const clientDb = await pool.connect();
 
   try {
-    await client.query('BEGIN')
 
-    const result = await client.query(
+    await clientDb.query('BEGIN');
+
+    const inventoryResult = await clientDb.query(
       `
       SELECT available_tickets
       FROM inventory
@@ -25,118 +59,82 @@ const reserve = async (eventId, quantity = 1) => {
       FOR UPDATE
       `,
       [eventId]
-    )
+    );
 
-    if (result.rows.length === 0) {
-      throw new Error('Event not found')
+    const inventory = inventoryResult.rows[0];
+
+    if (!inventory) {
+
+      await clientDb.query('ROLLBACK');
+
+      throw new Error('Inventory not found');
     }
 
-    const available = result.rows[0].available_tickets
+    if (inventory.available_tickets < quantity) {
 
-    if (available < quantity) {
-      throw new Error('Not enough tickets available')
+      soldOutCounter.inc();
+      reserveFailed.inc();
+
+      await clientDb.query('ROLLBACK');
+
+      throw new Error('Not enough tickets available');
     }
 
-    await client.query(
+    await clientDb.query(
       `
       UPDATE inventory
-      SET
-        available_tickets = available_tickets - $2,
-        reserved_tickets = reserved_tickets + $2
-      WHERE event_id = $1
+      SET available_tickets = available_tickets - $1,
+          reserved_tickets = reserved_tickets + $1
+      WHERE event_id = $2
       `,
-      [eventId, quantity]
-    )
+      [quantity, eventId]
+    );
 
-    await client.query('COMMIT')
+    await clientDb.query('COMMIT');
+
+    reserveSuccess.inc();
 
     return {
-      success: true,
-      eventId,
-      quantity,
-      message: 'Tickets reserved successfully'
-    }
+      success: true
+    };
+
   } catch (error) {
-    await client.query('ROLLBACK')
-    throw error
+
+    await clientDb.query('ROLLBACK');
+
+    reserveFailed.inc();
+
+    throw error;
+
   } finally {
-    client.release()
-    await redisClient.del(lockKey)
+
+    clientDb.release();
+
+    await redisClient.del(lockKey);
   }
 }
 
-const release = async (eventId, quantity = 1) => {
-  const client = await pool.connect()
+async function releaseTickets(eventId, quantity) {
 
-  try {
-    await client.query('BEGIN')
-
-    const result = await client.query(
-      `
-      SELECT reserved_tickets
-      FROM inventory
-      WHERE event_id = $1
-      FOR UPDATE
-      `,
-      [eventId]
-    )
-
-    if (result.rows.length === 0) {
-      throw new Error('Event not found')
-    }
-
-    const reserved = result.rows[0].reserved_tickets
-
-    if (reserved < quantity) {
-      throw new Error('Not enough reserved tickets to release')
-    }
-
-    await client.query(
-      `
-      UPDATE inventory
-      SET
-        available_tickets = available_tickets + $2,
-        reserved_tickets = reserved_tickets - $2
-      WHERE event_id = $1
-      `,
-      [eventId, quantity]
-    )
-
-    await client.query('COMMIT')
-
-    return {
-      success: true,
-      eventId,
-      quantity,
-      message: 'Tickets released successfully'
-    }
-  } catch (error) {
-    await client.query('ROLLBACK')
-    throw error
-  } finally {
-    client.release()
-  }
-}
-
-const getByEventId = async (eventId) => {
-  const result = await pool.query(
+  await pool.query(
     `
-    SELECT id, event_id, available_tickets, reserved_tickets
-    FROM inventory
-    WHERE event_id = $1
+    UPDATE inventory
+    SET available_tickets = available_tickets + $1,
+        reserved_tickets = reserved_tickets - $1
+    WHERE event_id = $2
     `,
-    [eventId]
-  )
+    [quantity, eventId]
+  );
 
-  if (result.rows.length === 0) {
-    throw new Error('Event not found')
-  }
+  releaseSuccess.inc();
 
-  return result.rows[0]
+  return {
+    success: true
+  };
 }
 
 module.exports = {
-  reserve,
-  release,
-  getByEventId
-}
+  getInventory,
+  reserveTickets,
+  releaseTickets
+};

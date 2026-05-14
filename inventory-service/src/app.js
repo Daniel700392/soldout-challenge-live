@@ -1,34 +1,36 @@
-require('dotenv').config()
+require('dotenv').config();
 
-const express = require('express')
-const promClient = require('prom-client')
-const inventoryRoutes = require('./routes/inventory.routes')
+const express = require('express');
+const client = require('prom-client');
 
-const app = express()
+const inventoryRoutes = require('./routes/inventory.routes');
 
-app.use(express.json())
-promClient.collectDefaultMetrics()
+const app = express();
 
-app.use('/inventory', inventoryRoutes)
+app.use(express.json());
 
-app.get('/metrics', async (req, res) => {
-  res.set('Content-Type', promClient.register.contentType)
-  res.end(await promClient.register.metrics())
-})
+client.collectDefaultMetrics();
 
 app.get('/health', (req, res) => {
-  res.status(200).json({
+
+  res.json({
     status: 'ok',
-    service: process.env.SERVICE_NAME || 'inventory-service'
-  })
-})
+    service: 'inventory-service'
+  });
+});
 
-app.get('/', (req, res) => {
-  res.send('Inventory Service Running')
-})
+app.get('/metrics', async (req, res) => {
 
-const PORT = process.env.PORT || 3002
+  res.set('Content-Type', client.register.contentType);
+
+  res.end(await client.register.metrics());
+});
+
+app.use('/inventory', inventoryRoutes);
+
+const PORT = process.env.PORT || 3002;
 
 app.listen(PORT, () => {
-  console.log(`Inventory service running on port ${PORT}`)
-})
+
+  console.log(`Inventory service running on port ${PORT}`);
+});

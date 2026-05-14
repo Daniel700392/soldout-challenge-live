@@ -1,14 +1,13 @@
-const express = require('express')
-const router = express.Router()
+const express = require('express');
 
-const {
-  reserveTicket,
-  releaseTicket,
-  getInventory
-} = require('../controllers/inventory.controller')
+const router = express.Router();
 
-router.post('/reserve', reserveTicket)
-router.post('/release', releaseTicket)
-router.get('/:eventId', getInventory)
+const inventoryController = require('../controllers/inventory.controller');
 
-module.exports = router
+router.get('/:eventId', inventoryController.getInventory);
+
+router.post('/reserve', inventoryController.reserve);
+
+router.post('/release', inventoryController.release);
+
+module.exports = router;
