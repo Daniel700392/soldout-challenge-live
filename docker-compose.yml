@@ -12,6 +12,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - soldout-network
 
   redis:
     image: redis:7
@@ -19,6 +21,8 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    networks:
+      - soldout-network
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -27,6 +31,8 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - soldout-network
 
   prometheus:
     image: prom/prometheus
@@ -36,6 +42,8 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - soldout-network
 
   grafana:
     image: grafana/grafana
@@ -43,6 +51,115 @@ services:
     restart: always
     ports:
       - "3001:3000"
+    networks:
+      - soldout-network
+
+  inventory-service:
+    build:
+      context: ./inventory-service
+    container_name: soldout-inventory-service
+    restart: always
+    environment:
+      PORT: 3002
+      SERVICE_NAME: inventory-service
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin
+      DB_NAME: soldout
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - soldout-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+    container_name: soldout-payment-service
+    restart: always
+    environment:
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin
+      DB_NAME: soldout
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "3003:3003"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - soldout-network
+
+  booking-service:
+    build:
+      context: ./booking-service
+    container_name: soldout-booking-service
+    restart: always
+    environment:
+      PORT: 3004
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin
+      DB_NAME: soldout
+      INVENTORY_SERVICE_URL: http://inventory-service:3002
+      PAYMENT_SERVICE_URL: http://payment-service:3003
+    ports:
+      - "3004:3004"
+    depends_on:
+      - postgres
+      - inventory-service
+      - payment-service
+    networks:
+      - soldout-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: soldout-api-gateway
+    restart: always
+    environment:
+      PORT: 3000
+      BOOKING_SERVICE_URL: http://booking-service:3004
+      INVENTORY_SERVICE_URL: http://inventory-service:3002
+      PAYMENT_SERVICE_URL: http://payment-service:3003
+    ports:
+      - "3000:3000"
+    depends_on:
+      - booking-service
+      - inventory-service
+      - payment-service
+    networks:
+      - soldout-network
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: soldout-notification-service
+    restart: always
+    environment:
+      PORT: 3005
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "3005:3005"
+    depends_on:
+      - rabbitmq
+    networks:
+      - soldout-network
 
 volumes:
   postgres_data:
+
+networks:
+  soldout-network:
+    driver: bridge

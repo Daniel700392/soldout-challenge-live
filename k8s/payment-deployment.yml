@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: payment-deployment
+  labels:
+    app: payment-service
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: payment-service
+
+  template:
+    metadata:
+      labels:
+        app: payment-service
+
+    spec:
+      containers:
+        - name: payment-service
+          image: soldout-challenge-live-payment-service:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 3003
+
+          env:
+            - name: PORT
+              value: "3003"
+
+            - name: DB_HOST
+              value: "postgres-service"
+
+            - name: DB_PORT
+              value: "5432"
+
+            - name: DB_USER
+              value: "admin"
+
+            - name: DB_PASSWORD
+              value: "admin"
+
+            - name: DB_NAME
+              value: "soldout"
+
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq-service:5672"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 15
+            periodSeconds: 10
