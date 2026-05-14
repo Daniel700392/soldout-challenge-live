@@ -62,7 +62,7 @@ app.get('/bookings', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3004;
 app.listen(PORT, () => {
     console.log(`✅ Booking Service con PostgreSQL funcionando en puerto ${PORT}`);
 });
