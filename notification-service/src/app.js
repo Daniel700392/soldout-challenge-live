@@ -8,10 +8,12 @@ const app = express()
 app.use(express.json())
 
 const PORT = process.env.PORT || 3005
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672'
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq:5672'
 
 const exchangeName = 'soldout.events'
 const queueName = 'notification.queue'
+
+promClient.collectDefaultMetrics()
 
 const notificationsConsumed = new promClient.Counter({
   name: 'notifications_consumed_total',
@@ -22,8 +24,6 @@ const notificationsFailed = new promClient.Counter({
   name: 'notifications_failed_total',
   help: 'Total number of notification events failed'
 })
-
-promClient.collectDefaultMetrics()
 
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -74,7 +74,6 @@ const startConsumer = async () => {
         })
 
         notificationsConsumed.inc()
-
         channel.ack(message)
       } catch (error) {
         console.error('[Notification] Error processing event:', error.message)
