@@ -1,91 +1,74 @@
 const inventoryService = require('../services/inventory.service');
 
 async function getInventory(req, res) {
-
   try {
-
-    const inventory = await inventoryService.getInventory(
-      req.params.eventId
-    );
-
-    res.json(inventory);
-
+    const inventory = await inventoryService.getInventory(req.params.eventId);
+    res.status(200).json(inventory);
   } catch (error) {
-
-    res.status(500).json({
-      error: error.message
+    res.status(404).json({
+      error: error.message,
     });
   }
 }
 
 async function reserve(req, res) {
-
   try {
-
-    const { eventId, quantity, requestId } = req.body;
+    const { eventId, quantity = 1, requestId } = req.body;
 
     if (!eventId) {
       return res.status(400).json({
-        error: 'eventId required'
+        error: 'eventId required',
       });
     }
 
     if (!quantity || quantity <= 0) {
       return res.status(400).json({
-        error: 'quantity must be greater than 0'
+        error: 'quantity must be greater than 0',
       });
     }
 
     if (!requestId) {
       return res.status(400).json({
-        error: 'requestId required'
+        error: 'requestId required',
       });
     }
 
     const result = await inventoryService.reserveTickets(
       eventId,
-      quantity
+      quantity,
+      requestId
     );
 
-    res.json(result);
-
+    res.status(200).json(result);
   } catch (error) {
-
     res.status(400).json({
-      error: error.message
+      error: error.message,
     });
   }
 }
 
 async function release(req, res) {
-
   try {
-
-    const { eventId, quantity } = req.body;
+    const { eventId, quantity = 1 } = req.body;
 
     if (!eventId) {
       return res.status(400).json({
-        error: 'eventId required'
+        error: 'eventId required',
       });
     }
 
     if (!quantity || quantity <= 0) {
       return res.status(400).json({
-        error: 'quantity must be greater than 0'
+        error: 'quantity must be greater than 0',
       });
     }
 
-    const result = await inventoryService.releaseTickets(
-      eventId,
-      quantity
-    );
+    const result = await inventoryService.releaseTickets(eventId, quantity);
 
-    res.json(result);
-
+    res.status(200).json(result);
   } catch (error) {
-
     res.status(400).json({
-      error: error.message
+      error: error.message,
     });
   }
 }
@@ -93,5 +76,5 @@ async function release(req, res) {
 module.exports = {
   getInventory,
   reserve,
-  release
+  release,
 };

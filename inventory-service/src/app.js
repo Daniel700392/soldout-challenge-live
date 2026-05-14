@@ -1,36 +1,48 @@
 require('dotenv').config();
 
 const express = require('express');
-const client = require('prom-client');
-
+const promClient = require('prom-client');
 const inventoryRoutes = require('./routes/inventory.routes');
+const { connectRedis } = require('./redis/redisClient');
 
 const app = express();
 
 app.use(express.json());
 
-client.collectDefaultMetrics();
+promClient.collectDefaultMetrics();
 
 app.get('/health', (req, res) => {
 
   res.json({
     status: 'ok',
-    service: 'inventory-service'
+    service: 'inventory-service',
   });
 });
 
 app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', promClient.register.contentType);
+  res.end(await promClient.register.metrics());
+});
 
-  res.set('Content-Type', client.register.contentType);
-
-  res.end(await client.register.metrics());
+app.get('/', (req, res) => {
+  res.send('Inventory Service Running');
 });
 
 app.use('/inventory', inventoryRoutes);
 
 const PORT = process.env.PORT || 3002;
 
-app.listen(PORT, () => {
+async function startServer() {
+  try {
+    await connectRedis();
 
-  console.log(`Inventory service running on port ${PORT}`);
-});
+    app.listen(PORT, () => {
+      console.log(`Inventory service running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start inventory-service:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
