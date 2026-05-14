@@ -12,7 +12,8 @@ app.use(express.json());
 promClient.collectDefaultMetrics();
 
 app.get('/health', (req, res) => {
-  res.status(200).json({
+
+  res.json({
     status: 'ok',
     service: 'inventory-service',
   });
