@@ -1,6 +1,7 @@
 {
   "name": "notification-service",
   "version": "1.0.0",
+<<<<<<< HEAD
   "description": "Notification Service",
   "main": "src/app.js",
   "scripts": {
@@ -17,5 +18,17 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
+=======
+  "main": "src/app.js",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+>>>>>>> 78ed59efc1047c9c06b584fd868bbc538830f746
   }
 }
