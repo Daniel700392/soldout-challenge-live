@@ -1,13 +1,13 @@
-const { getChannel } = require('../config/rabbitmq');
+const { getChannel } = require('../rabbitmq/rabbitmq');
 
-const publishPaymentEvent = async (routingKey, message) => {
+const publishEvent = async (routingKey, payload) => {
 
   const channel = getChannel();
 
   channel.publish(
     'soldout.events',
     routingKey,
-    Buffer.from(JSON.stringify(message)),
+    Buffer.from(JSON.stringify(payload)),
     {
       persistent: true,
     }
@@ -17,5 +17,5 @@ const publishPaymentEvent = async (routingKey, message) => {
 };
 
 module.exports = {
-  publishPaymentEvent,
+  publishEvent,
 };
