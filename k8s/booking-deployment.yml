@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: booking-deployment
+  labels:
+    app: booking-service
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: booking-service
+
+  template:
+    metadata:
+      labels:
+        app: booking-service
+
+    spec:
+      containers:
+        - name: booking-service
+          image: soldout-challenge-live-booking-service:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 3004
+
+          env:
+            - name: PORT
+              value: "3004"
+
+            - name: DB_HOST
+              value: "postgres-service"
+
+            - name: DB_PORT
+              value: "5432"
+
+            - name: DB_USER
+              value: "admin"
+
+            - name: DB_PASSWORD
+              value: "admin"
+
+            - name: DB_NAME
+              value: "soldout"
+
+            - name: INVENTORY_SERVICE_URL
+              value: "http://inventory-service:3002"
+
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:3003"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          

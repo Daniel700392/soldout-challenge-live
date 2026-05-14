@@ -5,6 +5,13 @@ const { pool, initDb } = require('./db/postgres'); // Importamos la conexión re
 const app = express();
 app.use(express.json());
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'booking-service'
+  })
+})
+
 // 1. REGLA CRÍTICA: Iniciamos la base de datos y creamos la tabla si no existe
 initDb();
 
@@ -55,7 +62,7 @@ app.get('/bookings', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3004;
 app.listen(PORT, () => {
     console.log(`✅ Booking Service con PostgreSQL funcionando en puerto ${PORT}`);
 });
