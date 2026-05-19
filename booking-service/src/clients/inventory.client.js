@@ -27,6 +27,7 @@ const releaseInventory = async (eventId, quantity, requestId) => {
         });
     } catch (error) {
         console.error('Error al liberar inventario:', error.message);
+        throw error;
     }
 };
 
