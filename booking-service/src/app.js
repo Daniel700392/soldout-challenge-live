@@ -1,68 +1,83 @@
-require('dotenv').config(); // Carga las variables del archivo .env
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const { pool, initDb } = require('./db/postgres'); // Importamos la conexión real
+const dotenv = require('dotenv');
+// Importamos la lógica de la Saga que creamos en el paso anterior
+const { createBookingSaga } = require('./services/booking.service');
+
+// Cargar variables de entorno
+dotenv.config();
+
 const app = express();
 app.use(express.json());
 
+/**
+ * METRICAS Y SALUD (Requisito para Persona 4 - DevOps)
+ */
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    service: 'booking-service'
-  })
-})
+    res.status(200).json({ status: 'ok', service: 'booking-service' });
+});
 
-// 1. REGLA CRÍTICA: Iniciamos la base de datos y creamos la tabla si no existe
-initDb();
+app.get('/metrics', (req, res) => {
+    res.status(200).send('# HELP booking_up Status\n# TYPE booking_up gauge\nbooking_up 1');
+});
 
-// ENDPOINT PRINCIPAL: Crear una reserva
+/**
+ * ENDPOINT PRINCIPAL: Crear Reserva
+ * Aquí es donde se orquesta la Saga e Idempotencia
+ */
 app.post('/bookings', async (req, res) => {
-    const { event_id, user_id, quantity, request_id } = req.body;
-
     try {
-        // 2. REGLA CRÍTICA: Idempotencia (Usando la DB real)
-        // Buscamos si ya existe ese request_id en PostgreSQL
-        const existing = await pool.query('SELECT * FROM bookings WHERE request_id = $1', [request_id]);
-        
-        if (existing.rows.length > 0) {
-            return res.status(200).json({ 
-                message: "Esta reserva ya fue procesada anteriormente", 
-                booking: existing.rows[0] 
+        const normalizedBody = {
+            ...req.body,
+            userId: req.body.userId || req.body.user_id,
+            eventId: req.body.eventId || req.body.event_id,
+            requestId: req.body.requestId || req.body.request_id
+        };
+
+        // Ejecutamos la Saga (Reserva -> Inventario -> Pago)
+        const result = await createBookingSaga(normalizedBody);
+
+        // Caso 1: Idempotencia (La reserva ya existía)
+        if (result.status === 'EXISTING') {
+            return res.status(200).json({
+                message: "Reserva ya procesada anteriormente",
+                data: result.data
             });
         }
 
-        // 3. Crear la reserva en estado PENDING (Saga Pattern)
-        const id = uuidv4();
-        const queryText = `
-            INSERT INTO bookings (id, event_id, user_id, quantity, status, request_id) 
-            VALUES ($1, $2, $3, $4, $5, $6) 
-            RETURNING *`;
-        const values = [id, event_id, user_id, quantity, 'PENDING', request_id];
-        
-        const result = await pool.query(queryText, values);
-        
-        console.log(`[Booking] Reserva guardada en DB (PENDING): ${id}`);
-        
-        // Respondemos con los datos que se guardaron en la tabla
-        res.status(201).json(result.rows[0]);
+        // Caso 2: Éxito total (Saga completada)
+        if (result.status === 'SUCCESS') {
+            return res.status(201).json(result.data);
+        }
 
-    } catch (err) {
-        console.error("❌ Error al procesar reserva:", err);
-        res.status(500).json({ error: "Error interno del servidor al guardar en DB" });
+        // Caso 3: Fallos controlados (Sin stock o pago rechazado)
+        return res.status(400).json({
+            error: result.message,
+            status: result.status
+        });
+
+    } catch (error) {
+        console.error('❌ Error crítico en el flujo de reserva:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
-// Endpoint para ver todas las reservas (Trae los datos reales de PostgreSQL)
-app.get('/bookings', async (req, res) => {
+/**
+ * CONSULTA: Ver una reserva por ID
+ */
+app.get('/bookings/:id', async (req, res) => {
+    const db = require('./db/postgres');
     try {
-        const result = await pool.query('SELECT * FROM bookings ORDER BY id DESC');
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: "Error al consultar la DB" });
+        const result = await db.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No se encontró la reserva' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
 const PORT = process.env.PORT || 3004;
 app.listen(PORT, () => {
-    console.log(`✅ Booking Service con PostgreSQL funcionando en puerto ${PORT}`);
+    console.log(`🚀 Booking Service PROFESIONAL funcionando en puerto ${PORT}`);
 });
