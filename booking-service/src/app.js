@@ -26,8 +26,15 @@ app.get('/metrics', (req, res) => {
  */
 app.post('/bookings', async (req, res) => {
     try {
+        const normalizedBody = {
+            ...req.body,
+            userId: req.body.userId || req.body.user_id,
+            eventId: req.body.eventId || req.body.event_id,
+            requestId: req.body.requestId || req.body.request_id
+        };
+
         // Ejecutamos la Saga (Reserva -> Inventario -> Pago)
-        const result = await createBookingSaga(req.body);
+        const result = await createBookingSaga(normalizedBody);
 
         // Caso 1: Idempotencia (La reserva ya existía)
         if (result.status === 'EXISTING') {
