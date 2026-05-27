@@ -4,16 +4,27 @@ const publishPaymentEvent = async (routingKey, message) => {
 
   const channel = getChannel();
 
-  channel.publish(
-    'soldout.events',
-    routingKey,
-    Buffer.from(JSON.stringify(message)),
-    {
-      persistent: true,
-    }
-  );
+  if (!channel) {
+    console.error('RabbitMQ channel not available');
+    return false;
+  }
 
-  console.log(`Event published: ${routingKey}`);
+  try {
+    channel.publish(
+      'soldout.events',
+      routingKey,
+      Buffer.from(JSON.stringify(message)),
+      {
+        persistent: true,
+      }
+    );
+
+    console.log(`Event published: ${routingKey}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to publish event:', error);
+    return false;
+  }
 };
 
 module.exports = {

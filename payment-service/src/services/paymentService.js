@@ -25,10 +25,29 @@ const processPayment = async (bookingId, amount) => {
     ]
   )
 
-  if (success) {
-    await publishPaymentEvent('payment.completed', payment)
-  } else {
-    await publishPaymentEvent('payment.failed', payment)
+  const routingKey = success ? 'payment.completed' : 'payment.failed'
+  const outboxId = crypto.randomUUID()
+
+  await pool.query(
+    `
+    INSERT INTO outbox_events (id, event_type, payload, published)
+    VALUES ($1, $2, $3, $4)
+    `,
+    [outboxId, routingKey, payment, false]
+  )
+
+  let published = false
+  try {
+    published = await publishPaymentEvent(routingKey, payment)
+  } catch (error) {
+    console.error('Error publishing event:', error)
+  }
+
+  if (published) {
+    await pool.query(
+      `UPDATE outbox_events SET published = true WHERE id = $1`,
+      [outboxId]
+    )
   }
 
   return payment
