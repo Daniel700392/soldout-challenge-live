@@ -1,11 +1,10 @@
-const { getChannel } = require('../config/rabbitmq');
+const { getChannel } = require('../rabbitmq/rabbitmq');
 
-const publishPaymentEvent = async (routingKey, message) => {
-
+const publishEvent = async (routingKey, payload) => {
   const channel = getChannel();
 
   if (!channel) {
-    console.error('RabbitMQ channel not available');
+    console.error('RabbitMQ channel is not available. Skipping publish.');
     return false;
   }
 
@@ -13,7 +12,7 @@ const publishPaymentEvent = async (routingKey, message) => {
     channel.publish(
       'soldout.events',
       routingKey,
-      Buffer.from(JSON.stringify(message)),
+      Buffer.from(JSON.stringify(payload)),
       {
         persistent: true,
       }
@@ -22,11 +21,11 @@ const publishPaymentEvent = async (routingKey, message) => {
     console.log(`Event published: ${routingKey}`);
     return true;
   } catch (error) {
-    console.error('Failed to publish event:', error);
+    console.error('RabbitMQ publish failed:', error.message);
     return false;
   }
 };
 
 module.exports = {
-  publishPaymentEvent,
+  publishEvent,
 };

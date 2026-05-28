@@ -1,6 +1,5 @@
-$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$backupFile = "backups/soldout_$timestamp.sql"
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
-docker exec soldout-postgres pg_dump -U admin -d soldout > $backupFile
+docker exec soldout-postgres pg_dump -U admin soldout > backups/soldout-$timestamp.sql
 
-Write-Host "Backup created: $backupFile"
+Write-Host "Backup completed: soldout-$timestamp.sql"
