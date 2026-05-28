@@ -5,7 +5,6 @@ const pool = require('../db/postgres');
 const { publishEvent } = require('../producers/payment.producer');
 
 const processPayment = async (bookingId, amount) => {
-
   const success = Math.random() < 0.8;
 
   const payment = {
@@ -34,6 +33,8 @@ const processPayment = async (bookingId, amount) => {
       ? 'payment.completed'
       : 'payment.failed';
 
+  const outboxId = uuidv4();
+
   await pool.query(
     `
     INSERT INTO outbox_events
@@ -41,20 +42,31 @@ const processPayment = async (bookingId, amount) => {
     VALUES ($1, $2, $3, false)
     `,
     [
-      uuidv4(),
+      outboxId,
       eventType,
       JSON.stringify(payment),
     ]
   );
 
-  await publishEvent(eventType, payment);
+  try {
+    const published = await publishEvent(eventType, payment);
 
-  await pool.query(
-    `
-    UPDATE outbox_events
-    SET published = true
-    `
-  );
+    if (published) {
+      await pool.query(
+        `
+        UPDATE outbox_events
+        SET published = true
+        WHERE id = $1
+        `,
+        [outboxId]
+      );
+    }
+  } catch (publishError) {
+    console.error(
+      'Payment event publish failed. Leaving event in outbox:',
+      publishError.message
+    );
+  }
 
   return payment;
 };
