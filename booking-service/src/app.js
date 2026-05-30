@@ -1,10 +1,9 @@
 const express = require('express');
 const dotenv = require('dotenv');
-// Importamos la lógica de la Saga que creamos en el paso anterior
-const { createBookingSaga } = require('./services/booking.service');
 
-// Cargar variables de entorno
 dotenv.config();
+
+const { createBookingSaga } = require('./services/booking.service');
 
 const app = express();
 app.use(express.json());

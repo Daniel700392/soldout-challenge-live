@@ -1,0 +1,70 @@
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: soldout-etcd
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_NAME=etcd1
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster
+      - ETCD_INITIAL_CLUSTER=etcd1=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    networks:
+      - soldout-network
+
+  patroni-primary:
+    image: ghcr.io/zalando/spilo-16:3.3-p1
+    container_name: patroni-primary
+    environment:
+      - PATRONI_CONFIGURATION_FILE=/patroni.yml
+      - PATRONI_SCOPE=soldout
+    volumes:
+      - ./patroni-primary.yml:/patroni.yml:ro
+      - patroni_primary_data:/home/postgres/pgdata
+    depends_on:
+      - etcd
+    networks:
+      - soldout-network
+
+  patroni-replica:
+    image: ghcr.io/zalando/spilo-16:3.3-p1
+    container_name: patroni-replica
+    environment:
+      - PATRONI_CONFIGURATION_FILE=/patroni.yml
+      - PATRONI_SCOPE=soldout
+    volumes:
+      - ./patroni-replica.yml:/patroni.yml:ro
+      - patroni_replica_data:/home/postgres/pgdata
+    depends_on:
+      - etcd
+    networks:
+      - soldout-network
+
+  haproxy-postgres:
+    image: haproxy:2.8
+    container_name: haproxy-postgres
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "5433:5432" # Expuesto en el host en puerto distinto para evitar conflicto con soldout-postgres (5432)
+      - "8404:8404" # Interfaz gráfica de estadísticas de HAProxy
+    depends_on:
+      - patroni-primary
+      - patroni-replica
+    networks:
+      - soldout-network
+
+volumes:
+  patroni_primary_data:
+  patroni_replica_data:
+
+networks:
+  soldout-network:
+    external: true
+    name: soldout-challenge-live_soldout-network
