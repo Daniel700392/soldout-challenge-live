@@ -48,8 +48,8 @@ postgresql:
   pgpass: /tmp/pgpass
   authentication:
     replication:
-      username: replicator
-      password: replicator_password
+      username: standby
+      password: standby
     superuser:
       username: postgres
       password: postgres_password

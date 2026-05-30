@@ -15,32 +15,45 @@ services:
     ports:
       - "2379:2379"
       - "2380:2380"
+    volumes:
+      - etcd_data:/etcd-data
+    command: >
+      etcd
+      --data-dir=/etcd-data
     networks:
       - soldout-network
 
   patroni-primary:
-    image: ghcr.io/zalando/spilo-16:3.3-p1
+    build:
+      context: .
+      dockerfile: Dockerfile.spilo-etcd3
+    image: soldout-spilo-etcd3:latest
     container_name: patroni-primary
     environment:
       - PATRONI_CONFIGURATION_FILE=/patroni.yml
       - PATRONI_SCOPE=soldout
+    command: ["patroni", "/patroni.yml"]
     volumes:
       - ./patroni-primary.yml:/patroni.yml:ro
-      - patroni_primary_data:/home/postgres/pgdata
+      - patroni_primary_data:/home/postgres/pgdata/pgroot
     depends_on:
       - etcd
     networks:
       - soldout-network
 
   patroni-replica:
-    image: ghcr.io/zalando/spilo-16:3.3-p1
+    build:
+      context: .
+      dockerfile: Dockerfile.spilo-etcd3
+    image: soldout-spilo-etcd3:latest
+    command: ["patroni", "/patroni.yml"]
     container_name: patroni-replica
     environment:
       - PATRONI_CONFIGURATION_FILE=/patroni.yml
       - PATRONI_SCOPE=soldout
     volumes:
       - ./patroni-replica.yml:/patroni.yml:ro
-      - patroni_replica_data:/home/postgres/pgdata
+      - patroni_replica_data:/home/postgres/pgdata/pgroot
     depends_on:
       - etcd
     networks:
@@ -61,6 +74,7 @@ services:
       - soldout-network
 
 volumes:
+  etcd_data:
   patroni_primary_data:
   patroni_replica_data:
 
