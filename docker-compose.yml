@@ -66,7 +66,7 @@ services:
       DB_PORT: 5432
       DB_USER: admin
       DB_PASSWORD: admin
-      DB_SSL: true
+      DB_SSL: false
       DB_NAME: soldout
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -91,7 +91,7 @@ services:
       DB_PORT: 5432
       DB_USER: admin
       DB_PASSWORD: admin
-      DB_SSL: true
+      DB_SSL: false
 
       DB_NAME: soldout
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
@@ -114,7 +114,7 @@ services:
       DB_PORT: 5432
       DB_USER: admin
       DB_PASSWORD: admin
-      DB_SSL: true
+      DB_SSL: false
       DB_NAME: soldout
       INVENTORY_SERVICE_URL: http://inventory-service:3002
       PAYMENT_SERVICE_URL: http://payment-service:3003
