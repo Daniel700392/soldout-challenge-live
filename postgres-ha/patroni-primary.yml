@@ -19,6 +19,8 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
+        archive_mode: "on"
+        archive_command: 'test ! -f /backups/wal/%f && cp %p /backups/wal/%f'
         wal_level: replica
         hot_standby: "on"
         wal_keep_size: 128MB
