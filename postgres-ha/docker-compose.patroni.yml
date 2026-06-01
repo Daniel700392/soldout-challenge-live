@@ -32,6 +32,7 @@ services:
     environment:
       - PATRONI_CONFIGURATION_FILE=/patroni.yml
       - PATRONI_SCOPE=soldout
+    command: ["patroni", "/patroni.yml"]
     volumes:
       - ./patroni-primary.yml:/patroni.yml:ro
       - patroni_primary_data:/home/postgres/pgdata/pgroot

@@ -1,12 +1,57 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const promClient = require('prom-client');
 
 dotenv.config();
 
 const { createBookingSaga } = require('./services/booking.service');
 
 const app = express();
+
+promClient.collectDefaultMetrics();
+
+const httpRequestsTotal = new promClient.Counter({
+    name: 'http_requests_total',
+    help: 'Total de requests HTTP recibidos',
+    labelNames: ['service', 'method', 'route', 'status_code']
+});
+
+const httpRequestDurationSeconds = new promClient.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duración de requests HTTP en segundos',
+    labelNames: ['service', 'method', 'route', 'status_code'],
+    buckets: [0.01, 0.05, 0.1, 0.3, 0.5, 1, 2, 3, 5]
+});
+
 app.use(express.json());
+
+app.use((req, res, next) => {
+    if (req.path === '/metrics') {
+        return next();
+    }
+
+    const end = httpRequestDurationSeconds.startTimer();
+
+    res.on('finish', () => {
+        const route = req.route && req.route.path ? req.route.path : req.path;
+
+        httpRequestsTotal.inc({
+            service: 'booking-service',
+            method: req.method,
+            route,
+            status_code: String(res.statusCode)
+        });
+
+        end({
+            service: 'booking-service',
+            method: req.method,
+            route,
+            status_code: String(res.statusCode)
+        });
+    });
+
+    next();
+});
 
 /**
  * METRICAS Y SALUD (Requisito para Persona 4 - DevOps)
@@ -15,8 +60,13 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', service: 'booking-service' });
 });
 
-app.get('/metrics', (req, res) => {
-    res.status(200).send('# HELP booking_up Status\n# TYPE booking_up gauge\nbooking_up 1');
+app.get('/metrics', async (req, res) => {
+    try {
+        res.set('Content-Type', promClient.register.contentType);
+        res.end(await promClient.register.metrics());
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
 });
 
 /**
@@ -32,10 +82,8 @@ app.post('/bookings', async (req, res) => {
             requestId: req.body.requestId || req.body.request_id
         };
 
-        // Ejecutamos la Saga (Reserva -> Inventario -> Pago)
         const result = await createBookingSaga(normalizedBody);
 
-        // Caso 1: Idempotencia (La reserva ya existía)
         if (result.status === 'EXISTING') {
             return res.status(200).json({
                 message: "Reserva ya procesada anteriormente",
@@ -43,12 +91,10 @@ app.post('/bookings', async (req, res) => {
             });
         }
 
-        // Caso 2: Éxito total (Saga completada)
         if (result.status === 'SUCCESS') {
             return res.status(201).json(result.data);
         }
 
-        // Caso 3: Fallos controlados (Sin stock o pago rechazado)
         return res.status(400).json({
             error: result.message,
             status: result.status
