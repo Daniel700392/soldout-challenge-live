@@ -115,7 +115,7 @@ app.post('/bookings/seat', async (req, res) => {
             eventId: req.body.eventId || req.body.event_id,
             seatCode: req.body.seatCode || req.body.seat_code,
             requestId: req.body.requestId || req.body.request_id,
-            amount: req.body.amount || 150
+            amount: req.body.amount ?? 150
         };
         const result = await createSeatBookingSaga(normalizedBody);
         if (result.status === 'EXISTING') {
