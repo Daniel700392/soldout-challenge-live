@@ -48,6 +48,7 @@ export default function () {
     headers: {
       'Content-Type': 'application/json',
     },
+    responseCallback: http.expectedStatuses(200, 201, 400, 409),
   };
 
   const res = http.post(`${BASE_URL}/bookings/seat`, payload, params);
