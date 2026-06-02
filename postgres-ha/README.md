@@ -1,48 +1,213 @@
-# PostgreSQL High Availability con Patroni, etcd y HAProxy
+# PostgreSQL High Availability (Patroni)
 
-## Despliegue
+## Descripción
 
-1. Arranca el cluster HA en background:
-```bash
-docker compose -f docker-compose.patroni.yml up -d
+La carpeta `postgres-ha` contiene la configuración de **alta disponibilidad (High Availability - HA)** para PostgreSQL dentro del proyecto **SoldOut Challenge Live**.
+
+Se implementó una arquitectura basada en:
+
+* **PostgreSQL**
+* **Patroni**
+* **etcd**
+* **WAL Replication**
+
+El objetivo principal es garantizar continuidad del servicio ante fallos de un nodo primario.
+
+---
+
+## Objetivo
+
+El sistema de alta disponibilidad fue implementado para:
+
+* Evitar puntos únicos de falla.
+* Garantizar continuidad operativa.
+* Mantener replicación entre nodos PostgreSQL.
+* Permitir failover automático.
+* Incrementar resiliencia del sistema.
+
+---
+
+## Arquitectura HA
+
+El sistema PostgreSQL HA se compone de:
+
+### Primary Node
+
+Nodo principal encargado de:
+
+* Escrituras
+* Transacciones
+* Replicación hacia réplicas
+
+---
+
+### Replica Node
+
+Nodo secundario encargado de:
+
+* Replicación de datos
+* Disponibilidad ante fallos
+* Promoción automática en failover
+
+---
+
+### etcd
+
+`etcd` funciona como **Distributed Configuration Store (DCS)**.
+
+Responsabilidades:
+
+* Elegir líder del clúster.
+* Coordinar failover.
+* Mantener estado distribuido.
+* Evitar split-brain.
+
+---
+
+## Estructura
+
+```text id="zv49a2"
+postgres-ha/
+│── patroni-primary/
+│── patroni-replica/
+│── etcd/
+│── scripts/
+│── docker-compose.yml
 ```
 
-2. Verifica los logs para asegurar que el líder ha sido elegido:
-```bash
-docker logs patroni-primary
-docker logs patroni-replica
+---
+
+## Componentes utilizados
+
+| Tecnología      | Uso                      |
+| --------------- | ------------------------ |
+| PostgreSQL      | Persistencia principal   |
+| Patroni         | Orquestación HA          |
+| etcd            | Coordinación distribuida |
+| WAL Replication | Replicación de cambios   |
+
+---
+
+## Levantar el Clúster HA
+
+Desde la raíz del proyecto:
+
+```powershell id="4l8msp"
+docker compose up -d
 ```
 
-## Monitorización (HAProxy)
+Ver contenedores:
 
-HAProxy expone una interfaz gráfica de estadísticas. Puedes accederla en tu navegador para ver la salud de los nodos y confirmar quién tiene el tráfico:
-* **URL:** [http://localhost:8404](http://localhost:8404)
-
-El nodo en color verde (`UP`) es el `primary`, el que esté en rojo (`DOWN` debido a que el healthcheck `/master` retorna 503) es el `replica`.
-
-## Restauración de Datos Inicial (Migración)
-
-Dado que HAProxy no tiene el cliente `psql`, inyectaremos el backup directamente desde el contenedor del nodo primario:
-
-```bash
-# 1. Crear la base de datos "soldout" con dueño "admin"
-docker exec -i patroni-primary psql -U postgres -c "CREATE DATABASE soldout OWNER admin;"
-
-# 2. Restaurar el backup (usar cmd /c en Windows para evitar corrupción de encoding por PowerShell)
-cmd /c "docker exec -i patroni-primary psql -U admin -d soldout < backups\soldout_backup_before_patroni.sql"
+```powershell id="4pxyr2"
+docker ps
 ```
 
-## Testing de Alta Disponibilidad
+Verificar que existan:
 
-### Simulación de Failover (Caída Inesperada)
-Detén el contenedor primario abruptamente:
-```bash
+```text id="65yqun"
+patroni-primary
+patroni-replica
+soldout-etcd
+```
+
+---
+
+## Verificar Estado del Clúster
+
+Ejecutar:
+
+```powershell id="jlwm7t"
+docker exec -it patroni-primary patronictl list
+```
+
+Ejemplo esperado:
+
+```text id="0mxkrw"
++ Cluster: soldout (xxxxxxx) --------+
+| Member            | Role    | State |
+|-------------------|---------|-------|
+| patroni-primary   | Leader  | running |
+| patroni-replica   | Replica | running |
++------------------------------------+
+```
+
+---
+
+## Validar Replicación
+
+Ejemplo:
+
+Crear datos en primary:
+
+```sql id="hvd4cc"
+INSERT INTO bookings (...) VALUES (...);
+```
+
+Consultar desde réplica:
+
+```sql id="n6vw3o"
+SELECT * FROM bookings;
+```
+
+La información debe aparecer sincronizada.
+
+---
+
+## Simular Failover
+
+Detener el nodo líder:
+
+```powershell id="s6tf5v"
 docker stop patroni-primary
 ```
-Patroni detectará la ausencia del líder y promoverá la réplica. HAProxy actualizará automáticamente el enrutamiento.
 
-### Simulación de Switchover (Mantenimiento Programado)
-Si quieres realizar un cambio de rol de manera ordenada sin pérdida de transacciones en vuelo, usa `patronictl`:
-```bash
-docker exec -it patroni-primary patronictl -c /patroni.yml switchover
+Verificar nuevamente:
+
+```powershell id="o91tzx"
+docker exec -it patroni-replica patronictl list
 ```
+
+Resultado esperado:
+
+La réplica debe promoverse automáticamente a **Leader**.
+
+---
+
+## Backups y Recuperación
+
+El sistema fue configurado para soportar:
+
+* Backups PostgreSQL
+* WAL Archiving
+* Recuperación ante fallos
+
+Ejemplo de backup:
+
+```powershell id="t9zj8r"
+pg_dump -U admin soldout > backup.sql
+```
+
+Ejemplo de restauración:
+
+```powershell id="im6v4n"
+psql -U admin soldout < backup.sql
+```
+
+---
+
+## Validaciones Realizadas
+
+Durante el proyecto se validó:
+
+✅ Replicación funcionando
+✅ Failover automático
+✅ Cambio de líder exitoso
+✅ Persistencia de datos
+✅ Recuperación ante fallos
+✅ Patroni funcionando correctamente
+
+---
+
+## Importancia dentro del proyecto
+
+La implementación de PostgreSQL HA garantiza que el sistema **SoldOut Challenge Live** pueda continuar operando incluso ante la caída de un nodo de base de datos, aumentando resiliencia y disponibilidad del sistema.
