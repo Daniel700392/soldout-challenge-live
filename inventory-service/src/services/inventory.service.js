@@ -185,9 +185,99 @@ async function releaseTickets(eventId, quantity) {
     clientDb.release();
   }
 }
+// Seat related functions
 
+async function listEvents() {
+  const result = await pool.query(`
+    SELECT id, name, venue, event_date, created_at
+    FROM events
+    ORDER BY event_date NULLS LAST, created_at DESC
+  `);
+  return result.rows;
+}
+
+async function getSeats(eventId) {
+  const result = await pool.query(`
+    SELECT id, event_id, seat_code, section, row_label, seat_number, status,
+           reserved_by, booking_id, reserved_at, created_at
+    FROM event_seats
+    WHERE event_id = $1
+    ORDER BY row_label, seat_number
+  `, [eventId]);
+  return result.rows;
+}
+
+async function reserveSeat(eventId, seatCode, userId, bookingId) {
+  const result = await pool.query(`
+    UPDATE event_seats
+    SET status = 'RESERVED',
+        reserved_by = $1,
+        booking_id = $2,
+        reserved_at = NOW()
+    WHERE event_id = $3
+      AND seat_code = $4
+      AND status = 'AVAILABLE'
+    RETURNING *
+  `, [userId, bookingId, eventId, seatCode]);
+
+  if (result.rowCount === 0) {
+    const error = new Error('Seat already reserved or sold');
+    error.code = 'SEAT_CONFLICT';
+    throw error;
+  }
+
+  return result.rows[0];
+}
+
+async function releaseSeat(eventId, seatCode, bookingId) {
+  const result = await pool.query(`
+    UPDATE event_seats
+    SET status = 'AVAILABLE',
+        reserved_by = NULL,
+        booking_id = NULL,
+        reserved_at = NULL
+    WHERE event_id = $1
+      AND seat_code = $2
+      AND booking_id = $3
+      AND status = 'RESERVED'
+    RETURNING *
+  `, [eventId, seatCode, bookingId]);
+
+  if (result.rowCount === 0) {
+    const error = new Error('Seat cannot be released');
+    throw error;
+  }
+
+  return result.rows[0];
+}
+
+async function confirmSeat(eventId, seatCode, bookingId) {
+  const result = await pool.query(`
+    UPDATE event_seats
+    SET status = 'SOLD'
+    WHERE event_id = $1
+      AND seat_code = $2
+      AND booking_id = $3
+      AND status = 'RESERVED'
+    RETURNING *
+  `, [eventId, seatCode, bookingId]);
+
+  if (result.rowCount === 0) {
+    const error = new Error('Seat cannot be confirmed');
+    throw error;
+  }
+
+  return result.rows[0];
+}
+
+// Export
 module.exports = {
   getInventory,
   reserveTickets,
   releaseTickets,
+  reserveSeat,
+  releaseSeat,
+  confirmSeat,
+  getSeats,
+  listEvents,
 };

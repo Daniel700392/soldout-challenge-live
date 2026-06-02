@@ -31,4 +31,53 @@ const releaseInventory = async (eventId, quantity, requestId) => {
     }
 };
 
-module.exports = { reserveInventory, releaseInventory };
+const reserveSeat = async (eventId, seatCode, requestId, bookingId) => {
+    try {
+        const response = await axios.post(`${INVENTORY_URL}/inventory/seats/reserve`, {
+            eventId,
+            seatCode,
+            requestId,
+            bookingId
+        });
+        return response.data;
+    } catch (error) {
+      if (error.response && error.response.status === 409) {
+        throw new Error('SEAT_CONTENTION');
+      }
+      throw new Error('Error reserving seat');
+    }
+};
+
+const confirmSeat = async (eventId, seatCode, bookingId) => {
+    try {
+        const response = await axios.post(`${INVENTORY_URL}/inventory/seats/confirm`, {
+            eventId,
+            seatCode,
+            bookingId
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error('Error confirming seat');
+    }
+};
+
+const releaseSeat = async (eventId, seatCode, bookingId) => {
+    try {
+        const response = await axios.post(`${INVENTORY_URL}/inventory/seats/release`, {
+            eventId,
+            seatCode,
+            bookingId
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error('Error releasing seat');
+    }
+};
+
+module.exports = {
+    reserveInventory,
+    releaseInventory,
+    reserveSeat,
+    confirmSeat,
+    releaseSeat
+};

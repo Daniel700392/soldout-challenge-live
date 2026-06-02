@@ -5,7 +5,7 @@ const pool = require('../db/postgres');
 const { publishEvent } = require('../producers/payment.producer');
 
 const processPayment = async (bookingId, amount) => {
-  const success = Math.random() < 0.8;
+  const success = amount > 0 && Math.random() < 0.8;
 
   const payment = {
     id: uuidv4(),

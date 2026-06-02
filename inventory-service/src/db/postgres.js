@@ -6,6 +6,7 @@ const pool = new Pool({
   user: process.env.DB_USER || process.env.POSTGRES_USER || 'admin',
   password: process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'admin',
   database: process.env.DB_NAME || process.env.POSTGRES_DB || 'soldout',
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 module.exports = pool;
