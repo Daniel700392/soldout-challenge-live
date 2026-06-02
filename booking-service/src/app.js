@@ -3,8 +3,9 @@ const dotenv = require('dotenv');
 const promClient = require('prom-client');
 
 dotenv.config();
+const { v4: uuidv4 } = require('uuid');
 
-const { createBookingSaga } = require('./services/booking.service');
+const { createBookingSaga, createSeatBookingSaga } = require('./services/booking.service');
 
 const app = express();
 
@@ -102,6 +103,37 @@ app.post('/bookings', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error crítico en el flujo de reserva:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+app.post('/bookings/seat', async (req, res) => {
+    try {
+        const normalizedBody = {
+            ...req.body,
+            userId: req.body.userId || req.body.user_id,
+            eventId: req.body.eventId || req.body.event_id,
+            seatCode: req.body.seatCode || req.body.seat_code,
+            requestId: req.body.requestId || req.body.request_id,
+            amount: req.body.amount || 150
+        };
+        const result = await createSeatBookingSaga(normalizedBody);
+        if (result.status === 'EXISTING') {
+            return res.status(200).json({ message: "Reserva de asiento ya procesada anteriormente", data: result.data });
+        }
+        if (result.status === 'SUCCESS') {
+            return res.status(201).json(result.data);
+        }
+        if (result.status === 'REJECTED') {
+            return res.status(409).json({
+                error: "El asiento ya no está disponible",
+                status: "REJECTED",
+                message: "Otro usuario seleccionó este asiento antes. Por favor elige otro."
+            });
+        }
+        return res.status(400).json({ error: result.message, status: result.status });
+    } catch (error) {
+        console.error('❌ Error crítico en el flujo de reserva de asiento:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
