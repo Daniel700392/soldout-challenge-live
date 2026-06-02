@@ -21,9 +21,9 @@ const createSeatBookingSaga = async (bookingData) => {
 
     // Now insert the booking record as PENDING
     const newBooking = await db.query(
-      `INSERT INTO bookings (id, user_id, event_id, seat_code, request_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [bookingId, userId, eventId, seatCode, requestId, 'PENDING']
+      `INSERT INTO bookings (id, user_id, event_id, seat_code, request_id, amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [bookingId, userId, eventId, seatCode, requestId, amount, 'PENDING']
     );
     const booking = newBooking.rows[0];
 
@@ -57,9 +57,9 @@ const createSeatBookingSaga = async (bookingData) => {
     }
     // For other inventory errors, create a FAILED booking record for audit
     await db.query(
-      `INSERT INTO bookings (id, user_id, event_id, seat_code, request_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [bookingId, userId, eventId, seatCode, requestId, 'FAILED']
+      `INSERT INTO bookings (id, user_id, event_id, seat_code, request_id, amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [bookingId, userId, eventId, seatCode, requestId, amount, 'FAILED']
     );
     return { status: 'FAILED', message: invError.message };
   }
